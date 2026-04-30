@@ -77,19 +77,28 @@ function flattenFormFields(fields) {
 /**
  * 判断扁平化后的字段在当前表单数据下是否应当渲染。
  *
- * 规则：
- * - 没有 visibleWhen 或 visibleWhen 为空 → 始终显示（顶层字段）
- * - 有 visibleWhen → 必须每一条件都满足才显示（链路上的所有祖先都被命中）
- *   命中的判定：
+ * 判断顺序：
+ * 1. 若传入 expectedType（字符串或数组），先校验 field.fieldType 是否匹配；
+ *    不匹配直接返回 false —— 用于"一个组件只渲染对应类型的字段"的场景。
+ * 2. 没有 visibleWhen 或 visibleWhen 为空 → 始终显示（顶层字段）。
+ * 3. 有 visibleWhen → 链路上每个祖先条件都命中才显示。
+ *    命中规则：
  *     · 表单值是数组（如 checkbox 多选）→ 包含 equals 即算命中
  *     · 表单值是基本类型 → 严格相等（数字与字符串做一次宽松比较兜底）
  *
- * @param {Object} field    flattenFormFields 输出的单个字段
- * @param {Object} formData 当前表单数据，键为扁平化后的 fieldKey
+ * @param {Object} field         flattenFormFields 输出的单个字段
+ * @param {Object} formData      当前表单数据，键为扁平化后的 fieldKey
+ * @param {String|String[]} [expectedType] 期望的 fieldType；不传则跳过类型校验
  * @returns {Boolean}
  */
-function isFieldVisible(field, formData) {
+function isFieldVisible(field, formData, expectedType) {
   if (!field) return false;
+
+  if (expectedType != null) {
+    const types = Array.isArray(expectedType) ? expectedType : [expectedType];
+    if (!types.includes(field.fieldType)) return false;
+  }
+
   const conditions = field.visibleWhen;
   if (!Array.isArray(conditions) || conditions.length === 0) return true;
   if (!formData) return false;

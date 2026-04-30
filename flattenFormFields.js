@@ -84,8 +84,11 @@ function flattenFormFields(fields) {
  *        → 仅校验 field.fieldType === expectedType
  *      · datetime 子类型字符串：'date' / 'time' / 'datetime'
  *        → 要求 field.fieldType === 'datetime' 且 field.dateTimeMode === expectedType
- *      · 对象：{ type, mode? }
- *        → field.fieldType === type，并且 mode 存在时 field.dateTimeMode === mode
+ *      · attach 子类型字符串：'image' / 'file'
+ *        → 要求 field.fieldType === 'attach'   且 field.attachKind   === expectedType
+ *      · 对象：{ type, mode?, kind? }
+ *        → field.fieldType === type；mode 存在时 dateTimeMode 必须相等；
+ *          kind 存在时 attachKind 必须相等。
  * 2. 没有 visibleWhen 或 visibleWhen 为空 → 始终显示（顶层字段）。
  * 3. 有 visibleWhen → 链路上每个祖先条件都命中才显示。
  *    命中规则：
@@ -113,15 +116,20 @@ function isFieldVisible(field, formData, expectedType) {
 }
 
 const DATETIME_MODES = ['date', 'time', 'datetime'];
+const ATTACH_KINDS = ['image', 'file'];
 
 function matchFieldType(field, expected) {
   if (expected && typeof expected === 'object') {
     if (expected.type !== field.fieldType) return false;
     if (expected.mode != null && field.dateTimeMode !== expected.mode) return false;
+    if (expected.kind != null && field.attachKind !== expected.kind) return false;
     return true;
   }
   if (DATETIME_MODES.includes(expected)) {
     return field.fieldType === 'datetime' && field.dateTimeMode === expected;
+  }
+  if (ATTACH_KINDS.includes(expected)) {
+    return field.fieldType === 'attach' && field.attachKind === expected;
   }
   return field.fieldType === expected;
 }

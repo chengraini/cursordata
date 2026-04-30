@@ -77,10 +77,6 @@ function flattenFormFields(fields) {
 /**
  * 判断扁平化后的字段在当前表单数据下是否应当渲染。
  *
- * 支持两种入参形式：
- *   isFieldVisible(field, formData)                    // 传字段对象
- *   isFieldVisible(fieldKey, formData, flatFields)     // 传 fieldKey + 扁平字段数组
- *
  * 规则：
  * - 没有 visibleWhen 或 visibleWhen 为空 → 始终显示（顶层字段）
  * - 有 visibleWhen → 必须每一条件都满足才显示（链路上的所有祖先都被命中）
@@ -88,46 +84,17 @@ function flattenFormFields(fields) {
  *     · 表单值是数组（如 checkbox 多选）→ 包含 equals 即算命中
  *     · 表单值是基本类型 → 严格相等（数字与字符串做一次宽松比较兜底）
  *
- * @param {Object|String} fieldOrKey 字段对象，或扁平化后的 fieldKey
- * @param {Object} formData          当前表单数据，键为扁平化后的 fieldKey
- * @param {Array}  [flatFields]      第一参数为 fieldKey 时必传，用于查找字段
+ * @param {Object} field    flattenFormFields 输出的单个字段
+ * @param {Object} formData 当前表单数据，键为扁平化后的 fieldKey
  * @returns {Boolean}
  */
-function isFieldVisible(fieldOrKey, formData, flatFields) {
-  let field = fieldOrKey;
-  if (typeof fieldOrKey === 'string') {
-    if (!Array.isArray(flatFields)) return false;
-    field = flatFields.find((f) => f.fieldKey === fieldOrKey);
-  }
+function isFieldVisible(field, formData) {
   if (!field) return false;
-
   const conditions = field.visibleWhen;
   if (!Array.isArray(conditions) || conditions.length === 0) return true;
   if (!formData) return false;
 
   return conditions.every((cond) => matchCondition(formData[cond.fieldKey], cond.equals));
-}
-
-/**
- * 工厂函数：基于一份扁平字段数组，生成一个 (fieldKey, formData) => Boolean 的判断器。
- * 内部用 Map 缓存 fieldKey → field，循环中调用 O(1) 查找，比每次 find 更划算。
- *
- * @param {Array} flatFields flattenFormFields 的返回值
- * @returns {(fieldKey: String, formData: Object) => Boolean}
- */
-function createVisibilityChecker(flatFields) {
-  const map = new Map();
-  if (Array.isArray(flatFields)) {
-    for (const f of flatFields) map.set(f.fieldKey, f);
-  }
-  return function check(fieldKey, formData) {
-    const field = map.get(fieldKey);
-    if (!field) return false;
-    const conditions = field.visibleWhen;
-    if (!Array.isArray(conditions) || conditions.length === 0) return true;
-    if (!formData) return false;
-    return conditions.every((cond) => matchCondition(formData[cond.fieldKey], cond.equals));
-  };
 }
 
 function matchCondition(actual, expected) {
@@ -144,5 +111,5 @@ function looseEqual(a, b) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { flattenFormFields, isFieldVisible, createVisibilityChecker };
+  module.exports = { flattenFormFields, isFieldVisible };
 }

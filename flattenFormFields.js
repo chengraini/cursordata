@@ -74,6 +74,42 @@ function flattenFormFields(fields) {
   return walk(source, '', 0, []);
 }
 
+/**
+ * 判断扁平化后的字段在当前表单数据下是否应当渲染。
+ *
+ * 规则：
+ * - 没有 visibleWhen 或 visibleWhen 为空 → 始终显示（顶层字段）
+ * - 有 visibleWhen → 必须每一条件都满足才显示（链路上的所有祖先都被命中）
+ *   命中的判定：
+ *     · 表单值是数组（如 checkbox 多选）→ 包含 equals 即算命中
+ *     · 表单值是基本类型 → 严格相等（数字与字符串做一次宽松比较兜底）
+ *
+ * @param {Object} field    flattenFormFields 输出的单个字段
+ * @param {Object} formData 当前表单数据，键为扁平化后的 fieldKey
+ * @returns {Boolean}
+ */
+function isFieldVisible(field, formData) {
+  if (!field) return false;
+  const conditions = field.visibleWhen;
+  if (!Array.isArray(conditions) || conditions.length === 0) return true;
+  if (!formData) return false;
+
+  return conditions.every((cond) => matchCondition(formData[cond.fieldKey], cond.equals));
+}
+
+function matchCondition(actual, expected) {
+  if (Array.isArray(actual)) {
+    return actual.some((v) => looseEqual(v, expected));
+  }
+  return looseEqual(actual, expected);
+}
+
+function looseEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  return String(a) === String(b);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { flattenFormFields };
+  module.exports = { flattenFormFields, isFieldVisible };
 }

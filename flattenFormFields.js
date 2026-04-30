@@ -78,17 +78,23 @@ function flattenFormFields(fields) {
  * 判断扁平化后的字段在当前表单数据下是否应当渲染。
  *
  * 判断顺序：
- * 1. 若传入 expectedType（字符串或数组），先校验 field.fieldType 是否匹配；
- *    不匹配直接返回 false —— 用于"一个组件只渲染对应类型的字段"的场景。
+ * 1. 若传入 expectedType，先校验类型是否匹配，不匹配直接返回 false。
+ *    expectedType 支持以下形式（可单个，也可数组传多个）：
+ *      · 普通类型字符串：'radio' / 'checkbox' / 'input' / 'textarea' / 'attach' / 'tree_radio'
+ *        → 仅校验 field.fieldType === expectedType
+ *      · datetime 子类型字符串：'date' / 'time' / 'datetime'
+ *        → 要求 field.fieldType === 'datetime' 且 field.dateTimeMode === expectedType
+ *      · 对象：{ type, mode? }
+ *        → field.fieldType === type，并且 mode 存在时 field.dateTimeMode === mode
  * 2. 没有 visibleWhen 或 visibleWhen 为空 → 始终显示（顶层字段）。
  * 3. 有 visibleWhen → 链路上每个祖先条件都命中才显示。
  *    命中规则：
  *     · 表单值是数组（如 checkbox 多选）→ 包含 equals 即算命中
  *     · 表单值是基本类型 → 严格相等（数字与字符串做一次宽松比较兜底）
  *
- * @param {Object} field         flattenFormFields 输出的单个字段
- * @param {Object} formData      当前表单数据，键为扁平化后的 fieldKey
- * @param {String|String[]} [expectedType] 期望的 fieldType；不传则跳过类型校验
+ * @param {Object} field    flattenFormFields 输出的单个字段
+ * @param {Object} formData 当前表单数据，键为扁平化后的 fieldKey
+ * @param {String|Object|Array} [expectedType] 期望的类型；不传则跳过类型校验
  * @returns {Boolean}
  */
 function isFieldVisible(field, formData, expectedType) {
@@ -96,7 +102,7 @@ function isFieldVisible(field, formData, expectedType) {
 
   if (expectedType != null) {
     const types = Array.isArray(expectedType) ? expectedType : [expectedType];
-    if (!types.includes(field.fieldType)) return false;
+    if (!types.some((t) => matchFieldType(field, t))) return false;
   }
 
   const conditions = field.visibleWhen;
@@ -104,6 +110,20 @@ function isFieldVisible(field, formData, expectedType) {
   if (!formData) return false;
 
   return conditions.every((cond) => matchCondition(formData[cond.fieldKey], cond.equals));
+}
+
+const DATETIME_MODES = ['date', 'time', 'datetime'];
+
+function matchFieldType(field, expected) {
+  if (expected && typeof expected === 'object') {
+    if (expected.type !== field.fieldType) return false;
+    if (expected.mode != null && field.dateTimeMode !== expected.mode) return false;
+    return true;
+  }
+  if (DATETIME_MODES.includes(expected)) {
+    return field.fieldType === 'datetime' && field.dateTimeMode === expected;
+  }
+  return field.fieldType === expected;
 }
 
 function matchCondition(actual, expected) {
